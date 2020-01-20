@@ -1,4 +1,4 @@
-#    Copyright (c) 2010-2016, Delft University of Technology
+#    Copyright (c) 2010-2019, Delft University of Technology
 #    All rigths reserved
 #
 #    This file is part of the Tudat. Redistribution and use in source and
@@ -72,11 +72,104 @@ string(REPLACE "." "_" BoostFolderName ${BoostFolderName})
 set(BoostFolderName boost_${BoostFolderName})
 
 # Create directory in top-level source dir.
-SET(BOOST_INCLUDEDIR "${CMAKE_CURRENT_SOURCE_DIR}/boost")
-SET(BOOST_LIBRARYDIR "${BOOST_INCLUDEDIR}/stage/lib")
-SET(BoostCacheDir   "${BOOST_INCLUDEDIR}/build")
+set(BOOST_INCLUDEDIR "${CMAKE_CURRENT_SOURCE_DIR}/boost")
+set(BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/boost")
+set(BOOST_LIBRARYDIR "${BOOST_INCLUDEDIR}/stage/lib")
+set(Boost_NO_SYSTEM_PATHS ON)
+
+set(BoostCacheDir   "${BOOST_INCLUDEDIR}/build")
 file(MAKE_DIRECTORY "${BOOST_INCLUDEDIR}")
 file(MAKE_DIRECTORY "${BoostCacheDir}")
+
+# Force using static libraries as the build libraries are not installed to the system
+# or the libs dir added to the path.
+set(Boost_USE_STATIC_LIBS ON)
+
+#
+# Check if C POSIX library is present
+#
+include(CheckIncludeFiles)
+# usage: CHECK_INCLUDE_FILES (<header> <RESULT_VARIABLE> )
+unset(HAVE_UNISTD_H CACHE)
+check_include_files(unistd.h HAVE_UNISTD_H)
+if(NOT HAVE_UNISTD_H)
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        execute_process(COMMAND xcode-select;-p OUTPUT_VARIABLE Output ERROR_VARIABLE Error)
+        message(FATAL_ERROR "C POSIX libraries not found on system. From command line execute:\nxcode-select --install.\n${Output}\n${Error}\n")
+    else()
+        message(FATAL_ERROR "C POSIX libraries not found on system. Please (re)install development environment.")
+    endif()
+endif()
+
+#
+# Check if local Boost is not already present
+#
+# Prevent find_package from throwing an error with Boost_NO_SYSTEM_PATHS ON
+if(EXISTS "${BOOST_INCLUDEDIR}/boost/version.hpp")
+# Set variables to true, if boost is already on system these stay true!
+set(BoostComponentsFound ON)
+set(BoostComponentsDir ON)
+foreach(Component ${BoostComponents})
+  find_package(Boost ${BoostVersion} COMPONENTS ${Component} QUIET)
+
+  # Convert component name to upper case
+  string(TOUPPER "${Component}" ComponentUpper)
+
+  # Variable variable names! Second-level unwrapping. 
+  # message(STATUS "${ComponentUpper}: ${Boost_${ComponentUpper}_FOUND} - ${Boost_${ComponentUpper}_LIBRARY}")
+  if(NOT ${Boost_${ComponentUpper}_FOUND})
+    set(BoostComponentsFound OFF)
+	message(STATUS "Boost ${Component} not found on system. We will build it then. Please ignore boost warnings.")
+  endif()
+
+  # Check if the library is located in the local library directory 
+  string(FIND "${Boost_${ComponentUpper}_LIBRARY}" "${BOOST_INCLUDEDIR}" BoostComponentsDirYes)
+  if(BoostComponentsDirYes LESS 0)
+    set(BoostComponentsDir OFF)
+  endif()
+  
+  # Need to unset these too, otherwise other find_package calls willl not update them. Also some are put in current scope and cache
+  unset("Boost_${ComponentUpper}_FOUND")
+  unset("Boost_${ComponentUpper}_LIBRARY")
+  unset("Boost_${ComponentUpper}_FOUND" CACHE)
+  unset("Boost_${ComponentUpper}_LIBRARY" CACHE)
+  unset("Boost_${ComponentUpper}_LIBRARIES")
+  unset("Boost_${ComponentUpper}_LIBRARY_DEBUG" CACHE)
+  unset("Boost_${ComponentUpper}_LIBRARY_RELEASE" CACHE)
+  
+  # Exit the for loop if a single component fails
+  if(NOT ${BoostComponentsDir})
+    break()
+  endif()
+  if(NOT ${BoostComponentsFound})
+    break()
+  endif()
+
+endforeach()
+
+# Unset all variable from find_package(Boost), preventing future usages of this macro becoming lazy.
+# As before some variables are also cached, so need double cleaning
+unset(Boost_FOUND)
+unset(Boost_INCLUDE_DIRS)
+unset(Boost_LIBRARY_DIRS)
+unset(Boost_LIBRARY_DIRS CACHE)
+unset(Boost_LIBRARIES)
+unset(Boost_VERSION)
+unset(Boost_VERSION CACHE)
+unset(Boost_LIB_VERSION)
+unset(Boost_LIB_VERSION CACHE)
+unset(Boost_MAJOR_VERSION)
+unset(Boost_MINOR_VERSION)
+unset(Boost_SUBMINOR_VERSION)
+
+endif()
+
+# Check if all components were found and if their location is local and not on the system.
+if(${BoostComponentsFound} AND ${BoostComponentsDir})
+  message(STATUS "Boost was already build on system")
+  return()
+endif()
+
 
 # Set up the full path to the source directory
 set(BoostSourceDir "${BoostFolderName}_${CMAKE_CXX_COMPILER_ID}_${CMAKE_CXX_COMPILER_VERSION}")
@@ -133,6 +226,9 @@ if(Found LESS "0" OR NOT IS_DIRECTORY "${BoostSourceDir}")
   file(MAKE_DIRECTORY ${BoostExtractFolder})
   file(COPY ${ZipFilePath} DESTINATION ${BoostExtractFolder})
   message(STATUS "Extracting boost ${BoostVersion} to ${BoostExtractFolder}")
+  if(WIN32)
+    message(STATUS "On Windows this can take up to several (tens) of minutes.")
+  endif()
   execute_process(COMMAND ${CMAKE_COMMAND} -E tar xfz ${BoostFolderName}.tar.bz2
                   WORKING_DIRECTORY ${BoostExtractFolder}
                   RESULT_VARIABLE Result
@@ -266,6 +362,7 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "DebugLibStdcxx")
   list(APPEND b2Args define=_GLIBCXX_DEBUG)
 endif()
+list(APPEND b2cxxflags "-fPIC")
 
 # Apply ::hypot not declared patch for MinGW32
 # http://stackoverflow.com/questions/10660524/error-building-boost-1-49-0-with-gcc-4-7-0

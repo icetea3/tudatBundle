@@ -1,4 +1,4 @@
- #    Copyright (c) 2010-2017, Delft University of Technology
+ #    Copyright (c) 2010-2019, Delft University of Technology
  #    All rigths reserved
  #
  #    This file is part of the Tudat. Redistribution and use in source and
@@ -61,7 +61,7 @@ if( TUDAT_BUILD_CLANG )
     set ( CMAKE_C_FLAGS_RELEASE        "-O3 -DNDEBUG" )
     set ( CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g" )
 
-    set ( CMAKE_CXX_FLAGS                "-Wall -Wextra -Wno-unused-parameter -std=c++11" )
+    set ( CMAKE_CXX_FLAGS                "-Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -std=c++11" )
     set ( CMAKE_CXX_FLAGS_DEBUG          "-g" )
     set ( CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG" )
     set ( CMAKE_CXX_FLAGS_RELEASE        "-O3 -DNDEBUG" )
@@ -82,22 +82,32 @@ elseif( TUDAT_BUILD_GNU )
 
     set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
     set(CMAKE_CXX_FLAGS_RELEASE        "-O2 -DNDEBUG")
-    set(CMAKE_CXX_FLAGS_DEBUG          "-g")
+    set(CMAKE_CXX_FLAGS_DEBUG          "-Og")
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -Wno-unused-parameter -Woverloaded-virtual -Wold-style-cast -Wnon-virtual-dtor")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -Wno-unused-parameter -Wno-unused-variable -Woverloaded-virtual -Wold-style-cast -Wnon-virtual-dtor")
 
     # MinGW fixes
     if( MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
       # MinGW fails to build with O2 or O3 optimization on several math.h function
       # http://ehc.ac/p/mingw/bugs/2250/
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__NO_INLINE__")
-      # MinGW gives some c11plus.xe out of memory messages:
-      # http://sourceforge.net/p/mingw-w64/mailman/message/33182613/
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftrack-macro-expansion=0")
+
       # MinGW32 4.8.1 has no defenitions for _aligned_malloc/realloc/free
       #
       add_definitions(-DEIGEN_MALLOC_ALREADY_ALIGNED=1)
       add_definitions(-DEIGEN_DONT_ALIGN=1)
+    endif()
+
+    # Fix exceptions not being caught
+    if( MINGW AND (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.4))
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++")
+    endif()
+
+    if( MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0 )
+      # MinGW gives some c11plus.xe out of memory messages:
+      # http://sourceforge.net/p/mingw-w64/mailman/message/33182613/
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftrack-macro-expansion=0")
+      set(CMAKE_EXE_LINKER_FLAGS "-Wl,--large-address-aware")
     endif()
 
 elseif( TUDAT_BUILD_MSVC )
@@ -121,5 +131,8 @@ else()
     message(STATUS "Compiler not identified: ${CMAKE_CXX_COMPILER_ID}" )
     message(STATUS "  Path: ${CMAKE_CXX_COMPILER}")
 endif()
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 message(STATUS "Building with flags: ${CMAKE_CXX_FLAGS}.")

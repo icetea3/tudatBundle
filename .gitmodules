@@ -6,19 +6,31 @@
 	url = https://github.com/Tudat/tudatExampleApplications.git
 [submodule "eigen"]
 	path = eigen
-	url = https://github.com/RLovelett/eigen.git
-[submodule "cspice"]
-	path = cspice
-	url = https://github.com/magnific0/cspice.git
+	url = https://github.com/tudat/eigen.git
 [submodule "nrlmsise-00"]
 	path = nrlmsise-00
-	url = https://github.com/magnific0/nrlmsise-00.git
-[submodule "jsoncpp"]
-	path = jsoncpp
-	url = https://github.com/open-source-parsers/jsoncpp.git
+	url = https://github.com/tudat/nrlmsise-00.git
 [submodule "boost"]
 	path = boost
 	url = https://github.com/boostorg/boost.git
-[submodule "pagmo"]
-	path = pagmo
-	url = https://github.com/esa/pagmo
+[submodule "sofa"]
+	path = sofa
+	url = https://github.com/tudat/sofa.git
+[submodule "json"]
+	path = json
+	url = https://github.com/tudat/json.git
+[submodule "matlabInterface"]
+	path = matlabInterface
+	url = https://github.com/tudat/tudat-matlab.git
+[submodule "nlopt"]
+	path = nlopt
+	url = https://github.com/tudat/nlopt
+[submodule "cspice"]
+	path = cspice
+	url = https://github.com/tudat/cspice.git
+[submodule "pagmo2"]
+	path = pagmo2
+	url = https://github.com/tudat/pagmo2
+[submodule "tbb"]
+	path = tbb
+	url = https://github.com/DominicDirkx/tbb
